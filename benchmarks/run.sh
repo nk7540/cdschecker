@@ -17,7 +17,7 @@ BINDIR="${0%/*}"
 BIN=${BINDIR}/barrier/barrier
 PREFIX=
 
-export LD_LIBRARY_PATH=${BINDIR}/..
+export LD_LIBRARY_PATH=${BINDIR}/..:/usr/local/apache/apr-util/lib:/usr/local/apache/apr/lib
 # For Mac OSX
 export DYLD_LIBRARY_PATH=${BINDIR}/..
 

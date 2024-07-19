@@ -6,7 +6,8 @@ OBJECTS := libthreads.o schedule.o model.o threads.o librace.o action.o \
 	   nodestack.o clockvector.o main.o snapshot-interface.o cyclegraph.o \
 	   datarace.o impatomic.o cmodelint.o \
 	   snapshot.o malloc.o mymemory.o common.o mutex.o promise.o conditionvariable.o \
-	   context.o scanalysis.o execution.o plugins.o libannotate.o
+	   context.o scanalysis.o execution.o plugins.o libannotate.o \
+	   mockfs.o
 
 CPPFLAGS += -Iinclude -I. -I$(SCFENCE_DIR)
 LDFLAGS := -ldl -lrt -rdynamic
@@ -22,7 +23,7 @@ TESTS_DIR := test
 
 MARKDOWN := doc/Markdown/Markdown.pl
 
-all: $(LIB_SO) tests README.html
+all: $(LIB_SO) README.html
 
 debug: CPPFLAGS += -DCONFIG_DEBUG
 debug: all
@@ -38,6 +39,9 @@ README.html: README.md
 malloc.o: malloc.c
 	$(CC) -fPIC -c malloc.c -DMSPACES -DONLY_MSPACES -DHAVE_MMAP=0 $(CPPFLAGS) -Wno-unused-variable
 
+mockfs.o : mockfs.c
+	$(CC) -fPIC -c mockfs.c -DMSPACES -DONLY_MSPACES -DHAVE_MMAP=0 $(CPPFLAGS) -Wno-unused-variable
+
 %.o : %.cc
 	$(CXX) -MMD -MF .$@.d -fPIC -c $< $(CPPFLAGS)
 
@@ -46,7 +50,8 @@ include $(SCFENCE_DIR)/Makefile
 -include $(wildcard $(SCFENCE_DIR)/.*.d)
 
 $(LIB_SO): $(OBJECTS)
-	$(CXX) $(SHARED) -o $(LIB_SO) $+ $(LDFLAGS)
+	$(CXX) $(SHARED) -o $(LIB_SO) $+ $(LDFLAGS) \
+	-Wl,--whole-archive /usr/local/src/apache/httpd-2.4.58/.libs/libhttpd.a -Wl,--no-whole-archive
 
 %.pdf: %.dot
 	dot -Tpdf $< -o $@

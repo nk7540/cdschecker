@@ -3,16 +3,23 @@
 #include "stdatomic.h"
 #include "mockfs.h"
 
+#include "httpd.h"
+#include "http_config.h"
+#include "http_request.h"
+
 FileSystem fs;
 
 static void a(void *obj)
 {
-    fs.printCurrentPath();
+    request_rec req = {
+        .unparsed_uri = "/file1.html",
+        .uri = "/file1.html",
+    };
+    ap_process_request_internal(&req);
 }
 
 static void b(void *obj)
 {
-    fs.printCurrentPath();
 }
 
 int user_main(int argc, char **argv)
