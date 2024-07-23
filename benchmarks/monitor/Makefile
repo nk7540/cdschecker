@@ -1,6 +1,5 @@
 include ../benchmarks.mk
 
-BENCH := mockfs
 NORMAL_TESTS := monitor
 
 WILDCARD_TESTS := $(patsubst %, %_wildcard, $(NORMAL_TESTS))
