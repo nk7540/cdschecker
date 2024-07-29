@@ -1,6 +1,7 @@
 #include "mockfs.h"
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -83,9 +84,12 @@ int my_creat(const char *path, mode_t mode)
 }
 
 // POSIX-like open function
-int my_open(const char *path, int flags, mode_t mode)
+int my_open(const char *path, int flags, ...)
 {
     pthread_mutex_lock(&fs.mtx);
+    va_list ap;
+    va_start(ap, flags);
+    mode_t mode = va_arg(ap, mode_t);
 
     Node *fileNode = NULL;
 
@@ -120,6 +124,7 @@ int my_open(const char *path, int flags, mode_t mode)
     }
 
     pthread_mutex_unlock(&fs.mtx);
+    va_end(ap);
     return -1; // Failed to open file
 }
 

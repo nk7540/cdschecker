@@ -2,7 +2,6 @@
 #define FILE_SYSTEM_H
 
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <pthread.h>
 
 // Node structure representing an inode
@@ -44,7 +43,7 @@ void destroyFileSystem();
 int my_creat(const char *path, mode_t mode);
 
 // POSIX-like open function
-int my_open(const char *path, int flags, mode_t mode);
+int my_open(const char *path, int flags, ...);
 
 // POSIX-like chdir function
 int my_chdir(const char *path);
