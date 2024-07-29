@@ -51,7 +51,9 @@ include $(SCFENCE_DIR)/Makefile
 
 $(LIB_SO): $(OBJECTS)
 	$(CXX) $(SHARED) -o $(LIB_SO) $+ $(LDFLAGS) \
-	-Wl,--whole-archive /usr/local/src/apache/httpd-2.4.58/.libs/libhttpd.a -Wl,--no-whole-archive
+	-Wl,--whole-archive /usr/local/src/apache/httpd-2.4.58/.libs/libhttpd.a -Wl,--no-whole-archive \
+	-Wl,--whole-archive /usr/local/src/apache/apr-1.7.4/.libs/libapr-1.a -Wl,--no-whole-archive \
+	-Wl,--whole-archive /usr/local/src/apache/apr-util-1.6.3/.libs/libaprutil-1.a -Wl,--no-whole-archive
 
 %.pdf: %.dot
 	dot -Tpdf $< -o $@

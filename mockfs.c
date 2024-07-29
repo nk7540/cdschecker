@@ -30,6 +30,7 @@ Node *createNode()
 // Function to initialize the file system
 void initFileSystem()
 {
+    printf("initFileSystem()\n");
     fs.root = createNode();
     fs.root->metadata.st_ino = 1;
     fs.root->metadata.st_mode = S_IFDIR;

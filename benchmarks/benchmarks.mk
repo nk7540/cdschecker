@@ -26,7 +26,8 @@ CFLAGS += $(CPPFLAGS)
 # export LD_LIBRARY_PATH=${BINDIR}/..
 # LDFLAGS += -L/usr/local/src/apache/httpd-2.4.58/.libs -lhttpd -Wl,-rpath /usr/local/src/apache/httpd-2.4.58/.libs
 LDFLAGS += -L$(BASE) -l$(LIB_NAME) -rdynamic -Wl,-rpath $(BASE)
-LDFLAGS += -L/usr/local/apache/apr-util/lib -laprutil-1 -L/usr/local/apache/apr/lib -lapr-1 -lpcre
+# LDFLAGS += -L/usr/local/apache/apr-util/lib -laprutil-1 -L/usr/local/apache/apr/lib -lapr-1 -lpcre
+LDFLAGS += -lpcre -lexpat -lcrypt
 
 # Mac OSX options
 ifeq ($(UNAME), Darwin)
