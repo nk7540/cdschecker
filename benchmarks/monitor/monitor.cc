@@ -37,8 +37,6 @@
 #include "apr_arch_threadproc.h"
 #include "scoreboard.h"
 
-FileSystem fs;
-
 // server/mpm/mpmt_os2/mpmt_os2.c
 // server_rec *ap_server_conf;
 
