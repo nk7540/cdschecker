@@ -10,6 +10,7 @@
 
 // Global file system instance
 FileSystem *fs;
+static bool mockfs_enabled = false;
 
 // Function to initialize the file system
 void initFileSystem()
@@ -19,9 +20,21 @@ void initFileSystem()
     fs->root = new Node();
     fs->root->metadata.st_ino = 1;
     fs->root->metadata.st_mode = S_IFDIR;
+    fs->root->links[0] = new Node(); // file1.html
+    fs->root->links[0]->metadata.st_ino = 2;
+    fs->root->links[1] = new Node(); // passwd
+    fs->root->links[1]->metadata.st_ino = 3;
     fs->current = fs->root;
     fs->inodeCounter = 1;
     fs->fdCounter = 0;
+
+    mockfs_enabled = true;
+}
+
+void resetFileSystem()
+{
+    printf("resetFileSystem()\n");
+    mockfs_enabled = false;
 }
 
 // Function to delete a node recursively
@@ -47,6 +60,11 @@ void destroyFileSystem()
 // POSIX-like creat function
 int my_creat(const char *path, mode_t mode)
 {
+    if (!mockfs_enabled)
+    {
+        return creat(path, mode);
+    }
+
     if (fs->current->links[(unsigned char)path[0]])
     {
         return -1; // File already exists
@@ -70,34 +88,54 @@ int my_open(const char *path, int flags, ...)
     va_start(ap, flags);
     mode_t mode = va_arg(ap, mode_t);
 
+    if (!mockfs_enabled)
+    {
+        return open(path, flags, mode);
+    }
+
     Node *fileNode = NULL;
 
-    if (fs->current->links[(unsigned char)path[0]])
+    // if (fs->current->links[(unsigned char)path[0]])
+    // {
+    //     fileNode = fs->current->links[(unsigned char)path[0]];
+    // }
+    // else
+    // {
+    //     if (flags & O_CREAT)
+    //     {
+    //         if (my_creat(path, mode) == -1)
+    //         {
+    //             return -1; // Failed to create file
+    //         }
+    //         fileNode = fs->current->links[(unsigned char)path[0]];
+    //     }
+    //     else
+    //     {
+    //         return -1; // File does not exist
+    //     }
+    // }
+    const char *file1 = "file1.html";
+    const char *passwd = "passwd";
+    fs->mtx.lock();
+    if (strcmp(path, file1) == 0)
     {
-        fileNode = fs->current->links[(unsigned char)path[0]];
+        printf("open(\"file1.html\")\n");
+        fileNode = fs->root->links[0];
     }
-    else
+    else if (strcmp(path, passwd) == 0)
     {
-        if (flags & O_CREAT)
-        {
-            if (my_creat(path, mode) == -1)
-            {
-                return -1; // Failed to create file
-            }
-            fileNode = fs->current->links[(unsigned char)path[0]];
-        }
-        else
-        {
-            return -1; // File does not exist
-        }
+        printf("open(\"passwd\")\n");
+        fileNode = fs->root->links[1];
     }
 
     if (fileNode)
     {
         int fd = ++fs->fdCounter;
         fs->openFiles[fd] = fileNode;
+        fs->mtx.unlock();
         return fd;
     }
+    fs->mtx.unlock();
 
     va_end(ap);
     return -1; // Failed to open file
@@ -106,6 +144,11 @@ int my_open(const char *path, int flags, ...)
 // POSIX-like chdir function
 int my_chdir(const char *path)
 {
+    if (!mockfs_enabled)
+    {
+        return chdir(path);
+    }
+
     if (fs->current->links[(unsigned char)path[0]] &&
         (fs->current->links[(unsigned char)path[0]]->metadata.st_mode & S_IFDIR))
     {
@@ -119,23 +162,38 @@ int my_chdir(const char *path)
 // POSIX-like link function
 int my_link(const char *oldpath, const char *newpath)
 {
-    if (fs->current->links[(unsigned char)newpath[0]])
+    if (!mockfs_enabled)
     {
-        return -1; // New path already exists
-    }
-    if (fs->current->links[(unsigned char)oldpath[0]])
-    {
-        fs->current->links[(unsigned char)newpath[0]] = fs->current->links[(unsigned char)oldpath[0]];
-        fs->current->links[(unsigned char)oldpath[0]]->metadata.st_nlink++;
-        return 0;
+        return link(oldpath, newpath);
     }
 
+    fs->mtx.lock();
+    printf("link(\"file1.html\")\n");
+    // if (fs->current->links[(unsigned char)newpath[0]])
+    // {
+    //     fs->mtx.unlock();
+    //     return -1; // New path already exists
+    // }
+    // if (fs->current->links[(unsigned char)oldpath[0]])
+    // {
+    //     fs->current->links[(unsigned char)newpath[0]] = fs->current->links[(unsigned char)oldpath[0]];
+    //     fs->current->links[(unsigned char)oldpath[0]]->metadata.st_nlink++;
+    //     fs->mtx.unlock();
+    //     return 0;
+    // }
+
+    fs->mtx.unlock();
     return -1; // Old path not found
 }
 
 // POSIX-like unlink function
 int my_unlink(const char *path)
 {
+    if (!mockfs_enabled)
+    {
+        return unlink(path);
+    }
+
     if (fs->current->links[(unsigned char)path[0]])
     {
         Node *node = fs->current->links[(unsigned char)path[0]];
@@ -153,34 +211,54 @@ int my_unlink(const char *path)
     return -1; // Path not found
 }
 
-// POSIX-like symlink function
-int my_symlink(const char *target, const char *linkpath)
-{
-    if (fs->current->links[(unsigned char)linkpath[0]])
-    {
-        return -1; // Link path already exists
-    }
-
-    Node *newNode = new Node();
-    newNode->metadata.st_ino = ++fs->inodeCounter;
-    newNode->metadata.st_mode = S_IFLNK;
-    newNode->target = strdup(target);
-    newNode->parent = fs->current;
-
-    fs->current->links[(unsigned char)linkpath[0]] = newNode;
-    fs->current->metadata.st_nlink++;
-
-    return 0;
-}
-
 // POSIX-like stat function
 int my_stat(const char *path, struct stat *buf)
 {
-    if (fs->current->links[(unsigned char)path[0]])
+    if (!mockfs_enabled)
     {
-        *buf = fs->current->links[(unsigned char)path[0]]->metadata;
+        return stat(path, buf);
+    }
+
+    // if (fs->current->links[(unsigned char)path[0]])
+    // {
+    //     *buf = fs->current->links[(unsigned char)path[0]]->metadata;
+    //     return 0;
+    // }
+    fs->mtx.lock();
+    if (strcmp(path, "file1.html") == 0)
+    {
+        if (strcmp(fs->root->links[0]->target, "passwd") == 0)
+        {
+            *buf = fs->root->links[1]->metadata;
+            return 0;
+        }
+        *buf = fs->root->links[0]->metadata;
         return 0;
     }
 
+    fs->mtx.unlock();
+    return -1; // Path not found
+}
+
+int my_lstat(const char *path, struct stat *buf)
+{
+    if (!mockfs_enabled)
+    {
+        return lstat(path, buf);
+    }
+
+    // if (fs->current->links[(unsigned char)path[0]])
+    // {
+    //     *buf = fs->current->links[(unsigned char)path[0]]->metadata;
+    //     return 0;
+    // }
+    fs->mtx.lock();
+    if (strcmp(path, "file1.html") == 0)
+    {
+        *buf = fs->root->links[0]->metadata;
+        return 0;
+    }
+
+    fs->mtx.unlock();
     return -1; // Path not found
 }

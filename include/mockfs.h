@@ -35,6 +35,9 @@ extern "C"
     // Function to initialize the file system
     void initFileSystem();
 
+    // Function to reset the file system
+    void resetFileSystem();
+
     // Function to delete a node recursively
     void deleteNode(Node *node);
 
@@ -56,11 +59,11 @@ extern "C"
     // POSIX-like unlink function
     int my_unlink(const char *path);
 
-    // POSIX-like symlink function
-    int my_symlink(const char *target, const char *linkpath);
-
     // POSIX-like stat function
     int my_stat(const char *path, struct stat *buf);
+
+    // POSIX-like lstat function
+    int my_lstat(const char *path, struct stat *buf);
 }
 
 #endif // FILE_SYSTEM_H

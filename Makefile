@@ -7,9 +7,10 @@ OBJECTS := libthreads.o schedule.o model.o threads.o librace.o action.o \
 	   datarace.o impatomic.o cmodelint.o \
 	   snapshot.o malloc.o mymemory.o common.o mutex.o promise.o conditionvariable.o \
 	   context.o scanalysis.o execution.o plugins.o libannotate.o \
-	   mockfs.o
+	   mockfs.o request.o
 
 CPPFLAGS += -Iinclude -I. -I$(SCFENCE_DIR)
+CPPFLAGS += -I/usr/local/src/apache/httpd-2.4.58 -I/usr/local/src/apache/httpd-2.4.58/os/unix -I/usr/local/src/apache/httpd-2.4.58/include -I/usr/local/apache/apr/include/apr-1 -I/usr/local/apache/apr-util/include/apr-1 -I/usr/local/src/apache/httpd-2.4.58/modules/aaa -I/usr/local/src/apache/httpd-2.4.58/modules/cache -I/usr/local/src/apache/httpd-2.4.58/modules/core -I/usr/local/src/apache/httpd-2.4.58/modules/database -I/usr/local/src/apache/httpd-2.4.58/modules/filters -I/usr/local/src/apache/httpd-2.4.58/modules/ldap -I/usr/local/src/apache/httpd-2.4.58/server -I/usr/local/src/apache/httpd-2.4.58/modules/loggers -I/usr/local/src/apache/httpd-2.4.58/modules/lua -I/usr/local/src/apache/httpd-2.4.58/modules/proxy -I/usr/local/src/apache/httpd-2.4.58/modules/http2 -I/usr/local/src/apache/httpd-2.4.58/modules/session -I/usr/local/src/apache/httpd-2.4.58/modules/ssl -I/usr/local/src/apache/httpd-2.4.58/modules/test -I/usr/local/src/apache/httpd-2.4.58/server -I/usr/local/src/apache/httpd-2.4.58/modules/md -I/usr/local/src/apache/httpd-2.4.58/modules/arch/unix -I/usr/local/src/apache/httpd-2.4.58/modules/dav/main -I/usr/local/src/apache/httpd-2.4.58/modules/generators -I/usr/local/src/apache/httpd-2.4.58/modules/mappers -I/usr/local/src/apache/httpd-2.4.58/server/mpm/worker -I/usr/local/src/apache/apr-1.7.4/include -I/usr/local/src/apache/apr-1.7.4/include/arch/unix
 LDFLAGS := -ldl -lrt -rdynamic
 SHARED := -shared
 
@@ -38,9 +39,6 @@ README.html: README.md
 
 malloc.o: malloc.c
 	$(CC) -fPIC -c malloc.c -DMSPACES -DONLY_MSPACES -DHAVE_MMAP=0 $(CPPFLAGS) -Wno-unused-variable
-
-# mockfs.o : mockfs.c
-# 	$(CC) -fPIC -c mockfs.c -DMSPACES -DONLY_MSPACES -DHAVE_MMAP=0 $(CPPFLAGS) -Wno-unused-variable
 
 %.o : %.cc
 	$(CXX) -MMD -MF .$@.d -fPIC -c $< $(CPPFLAGS)
