@@ -2,23 +2,36 @@
 #include "threads.h"
 #include "stdatomic.h"
 #include "mockfs.h"
+#include "request.h"
+
+#include "http_request.h"
+#include "http_config.h"
 
 static void a(void *obj)
 {
-    // int access_status;
-    // access_status = ap_process_request_internal(r);
-    // printf("access_status: %d\n", access_status);
+    int access_status;
+    // r->unparsed_uri = "/etc/passwd";
+    // r->uri = "/etc/passwd";
+    access_status = ap_process_request_internal(r);
+    printf("access_status: %d\n", access_status);
     // if (access_status == OK)
     // {
     //     access_status = ap_invoke_handler(r);
     //     printf("HTTP status: %d \n", access_status);
     // }
-    my_open("file1.html", 0);
+    // my_open("file1.html", 0);
+    // my_stat("/usr/local/apache/htdocs/file1.html", NULL);
+    // my_lstat("/usr", NULL);
+    // my_lstat("/usr/local", NULL);
+    // my_lstat("/usr/local/apache", NULL);
+    // my_lstat("/usr/local/apache/htdocs", NULL);
+    // my_lstat("/usr/local/apache/htdocs/file1.html", NULL);
 }
 
 static void b(void *obj)
 {
-    my_link("file1.html", "passwd");
+    my_open("file1.html", 0);
+    // my_link("file1.html", "passwd");
 }
 
 int user_main(int argc, char **argv)

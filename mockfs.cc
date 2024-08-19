@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 
 // Global file system instance
 FileSystem *fs;
@@ -117,14 +118,13 @@ int my_open(const char *path, int flags, ...)
     const char *file1 = "file1.html";
     const char *passwd = "passwd";
     fs->mtx.lock();
+    printf("my_open(\"%s\")\n", path);
     if (strcmp(path, file1) == 0)
     {
-        printf("open(\"file1.html\")\n");
         fileNode = fs->root->links[0];
     }
     else if (strcmp(path, passwd) == 0)
     {
-        printf("open(\"passwd\")\n");
         fileNode = fs->root->links[1];
     }
 
@@ -225,16 +225,20 @@ int my_stat(const char *path, struct stat *buf)
     //     return 0;
     // }
     fs->mtx.lock();
-    if (strcmp(path, "file1.html") == 0)
-    {
-        if (strcmp(fs->root->links[0]->target, "passwd") == 0)
-        {
-            *buf = fs->root->links[1]->metadata;
-            return 0;
-        }
-        *buf = fs->root->links[0]->metadata;
-        return 0;
-    }
+    printf("my_stat(%s, buf)\n", path);
+    // if (strcmp(path, "file1.html") == 0)
+    // {
+    //     if (strcmp(fs->root->links[0]->target, "passwd") == 0)
+    //     {
+    //         *buf = fs->root->links[1]->metadata;
+    //         fs->mtx.unlock();
+    //         return 0;
+    //     }
+    //     *buf = fs->root->links[0]->metadata;
+    //     fs->mtx.unlock();
+    //     return 0;
+    // }
+    errno = ENOENT;
 
     fs->mtx.unlock();
     return -1; // Path not found
@@ -253,11 +257,14 @@ int my_lstat(const char *path, struct stat *buf)
     //     return 0;
     // }
     fs->mtx.lock();
-    if (strcmp(path, "file1.html") == 0)
-    {
-        *buf = fs->root->links[0]->metadata;
-        return 0;
-    }
+    printf("my_lstat(%s, buf)\n", path);
+    // if (strcmp(path, "file1.html") == 0)
+    // {
+    //     *buf = fs->root->links[0]->metadata;
+    //     fs->mtx.unlock();
+    //     return 0;
+    // }
+    errno = ENOENT;
 
     fs->mtx.unlock();
     return -1; // Path not found
