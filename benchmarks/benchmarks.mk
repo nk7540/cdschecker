@@ -27,7 +27,7 @@ CFLAGS += $(CPPFLAGS)
 # LDFLAGS += -L/usr/local/src/apache/httpd-2.4.58/.libs -lhttpd -Wl,-rpath /usr/local/src/apache/httpd-2.4.58/.libs
 LDFLAGS += -L$(BASE) -l$(LIB_NAME) -rdynamic -Wl,-rpath $(BASE)
 # LDFLAGS += -L/usr/local/apache/apr-util/lib -laprutil-1 -L/usr/local/apache/apr/lib -lapr-1 -lpcre
-LDFLAGS += -lpcre -lexpat -lcrypt
+LDFLAGS += -lpcre -lexpat -lcrypt -luuid -lrt
 
 # Mac OSX options
 ifeq ($(UNAME), Darwin)
