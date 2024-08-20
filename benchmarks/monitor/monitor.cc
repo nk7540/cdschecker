@@ -19,13 +19,6 @@ static void a(void *obj)
     //     access_status = ap_invoke_handler(r);
     //     printf("HTTP status: %d \n", access_status);
     // }
-    // my_open("file1.html", 0);
-    // my_stat("/usr/local/apache/htdocs/file1.html", NULL);
-    // my_lstat("/usr", NULL);
-    // my_lstat("/usr/local", NULL);
-    // my_lstat("/usr/local/apache", NULL);
-    // my_lstat("/usr/local/apache/htdocs", NULL);
-    // my_lstat("/usr/local/apache/htdocs/file1.html", NULL);
 }
 
 static void b(void *obj)

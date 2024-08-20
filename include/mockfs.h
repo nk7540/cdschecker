@@ -3,6 +3,8 @@
 
 #include <sys/stat.h>
 #include <pthread.h>
+#include <vector>
+#include <string>
 #include "mutex"
 
 using namespace std;
@@ -11,24 +13,20 @@ using namespace std;
 typedef struct Node
 {
     struct stat metadata;
-    struct Node *parent;
-    struct Node *links[256];
     char *target; // for symlink target path
+    vector<pair<ino_t, string>> links;
 } Node;
 
-// FileSystem structure to hold the global file system state
-typedef struct FileSystem
-{
-    Node *root;
-    Node *current;
-    ino_t inodeCounter;
-    int fdCounter;
-    Node *openFiles[256];
-    mutex mtx;
-} FileSystem;
+// traverse
 
 extern "C"
 {
+    Node *allocate();
+    void link_node(Node *src, Node *dst, string name);
+    void unlink_node(Node *src, string name);
+
+    void switchProc(int pid);
+
     // Function to create a new node
     Node *createNode();
 

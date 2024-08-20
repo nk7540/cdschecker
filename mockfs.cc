@@ -9,25 +9,29 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+
+using namespace std;
+
 // Global file system instance
-FileSystem *fs;
+unordered_map<ino_t, Node *> inode_map;
+int inode_count = 0;
 static bool mockfs_enabled = false;
+unordered_map<int, Node *> sys_open_files[2];
+unordered_map<int, Node *> open_files;
 
 // Function to initialize the file system
 void initFileSystem()
 {
     printf("initFileSystem()\n");
-    fs = new FileSystem();
-    fs->root = new Node();
-    fs->root->metadata.st_ino = 1;
-    fs->root->metadata.st_mode = S_IFDIR;
-    fs->root->links[0] = new Node(); // file1.html
-    fs->root->links[0]->metadata.st_ino = 2;
-    fs->root->links[1] = new Node(); // passwd
-    fs->root->links[1]->metadata.st_ino = 3;
-    fs->current = fs->root;
-    fs->inodeCounter = 1;
-    fs->fdCounter = 0;
+
+    // Node *root = allocate();
+    // Node *file1 = allocate();
+    // Node *file2 = allocate();
+    // link_node(root, file1, "file1");
+    // link_node(root, file2, "file2");
 
     mockfs_enabled = true;
 }
@@ -38,24 +42,92 @@ void resetFileSystem()
     mockfs_enabled = false;
 }
 
-// Function to delete a node recursively
-void deleteNode(Node *node)
+void switchProc(int pid)
 {
-    for (int i = 0; i < 256; ++i)
+    open_files = sys_open_files[pid];
+}
+
+Node *allocate()
+{
+    Node *node;
+
+    node->metadata.st_ino = inode_count;
+    inode_map[inode_count] = node;
+
+    inode_count++;
+    return node;
+}
+
+void link_node(Node *src, Node *dst, string name)
+{
+    src->links.push_back({dst->metadata.st_ino, name});
+};
+
+void unlink_node(Node *src, string name)
+{
+    for (int i = 0; i < src->links.size(); i++)
     {
-        if (node->links[i])
+        if (src->links[i].second == name)
         {
-            deleteNode(node->links[i]);
+            free(inode_map[src->links[i].first]);
+            src->links.erase(src->links.begin() + i);
         }
     }
-    free(node->target);
-    free(node);
-}
+};
 
 // Function to destroy the file system
 void destroyFileSystem()
 {
-    deleteNode(fs->root);
+    for (auto &[ino, node] : inode_map)
+    {
+        free(node);
+    }
+}
+
+void traversePath(const string &pathname)
+{
+    // Start traversal from the root node
+    Node *currentNode = inode_map[0];
+
+    size_t pos = 1;
+    while (pos < pathname.size())
+    {
+        size_t nextSlash = pathname.find('/', pos);
+        string component = pathname.substr(pos, nextSlash - pos);
+
+        // Find the next node to traverse
+        bool found = false;
+        for (auto &link : currentNode->links)
+        {
+            if (component == link.second)
+            {
+                found = true;
+                currentNode = inode_map[link.first];
+
+                // Handle symbolic links (symlink)
+                if (currentNode->target)
+                {
+                    string symlinkTarget(currentNode->target);
+                    cout << "Following symlink: " << symlinkTarget << endl;
+                    traversePath(symlinkTarget + pathname.substr(nextSlash));
+                    return;
+                }
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            cout << "Path not found: " << pathname << endl;
+            return;
+        }
+
+        if (nextSlash == string::npos)
+            break;
+        pos = nextSlash + 1;
+    }
+
+    cout << "Traversal successful. Reached inode: " << currentNode->metadata.st_ino << endl;
 }
 
 // POSIX-like creat function
@@ -66,18 +138,18 @@ int my_creat(const char *path, mode_t mode)
         return creat(path, mode);
     }
 
-    if (fs->current->links[(unsigned char)path[0]])
-    {
-        return -1; // File already exists
-    }
+    // if (fs->current->links[(unsigned char)path[0]])
+    // {
+    //     return -1; // File already exists
+    // }
 
-    Node *newNode = new Node();
-    newNode->metadata.st_ino = ++fs->inodeCounter;
-    newNode->metadata.st_mode = mode | S_IFREG;
-    newNode->parent = fs->current;
+    // Node *newNode = new Node();
+    // newNode->metadata.st_ino = ++fs->inodeCounter;
+    // newNode->metadata.st_mode = mode | S_IFREG;
+    // newNode->parent = fs->current;
 
-    fs->current->links[(unsigned char)path[0]] = newNode;
-    fs->current->metadata.st_nlink++;
+    // fs->current->links[(unsigned char)path[0]] = newNode;
+    // fs->current->metadata.st_nlink++;
 
     return open(path, O_WRONLY);
 }
@@ -115,27 +187,6 @@ int my_open(const char *path, int flags, ...)
     //         return -1; // File does not exist
     //     }
     // }
-    const char *file1 = "file1.html";
-    const char *passwd = "passwd";
-    fs->mtx.lock();
-    printf("my_open(\"%s\")\n", path);
-    if (strcmp(path, file1) == 0)
-    {
-        fileNode = fs->root->links[0];
-    }
-    else if (strcmp(path, passwd) == 0)
-    {
-        fileNode = fs->root->links[1];
-    }
-
-    if (fileNode)
-    {
-        int fd = ++fs->fdCounter;
-        fs->openFiles[fd] = fileNode;
-        fs->mtx.unlock();
-        return fd;
-    }
-    fs->mtx.unlock();
 
     va_end(ap);
     return -1; // Failed to open file
@@ -149,12 +200,12 @@ int my_chdir(const char *path)
         return chdir(path);
     }
 
-    if (fs->current->links[(unsigned char)path[0]] &&
-        (fs->current->links[(unsigned char)path[0]]->metadata.st_mode & S_IFDIR))
-    {
-        fs->current = fs->current->links[(unsigned char)path[0]];
-        return 0;
-    }
+    // if (fs->current->links[(unsigned char)path[0]] &&
+    //     (fs->current->links[(unsigned char)path[0]]->metadata.st_mode & S_IFDIR))
+    // {
+    //     fs->current = fs->current->links[(unsigned char)path[0]];
+    //     return 0;
+    // }
 
     return -1; // Path not found or not a directory
 }
@@ -167,7 +218,6 @@ int my_link(const char *oldpath, const char *newpath)
         return link(oldpath, newpath);
     }
 
-    fs->mtx.lock();
     printf("link(\"file1.html\")\n");
     // if (fs->current->links[(unsigned char)newpath[0]])
     // {
@@ -182,7 +232,6 @@ int my_link(const char *oldpath, const char *newpath)
     //     return 0;
     // }
 
-    fs->mtx.unlock();
     return -1; // Old path not found
 }
 
@@ -194,19 +243,19 @@ int my_unlink(const char *path)
         return unlink(path);
     }
 
-    if (fs->current->links[(unsigned char)path[0]])
-    {
-        Node *node = fs->current->links[(unsigned char)path[0]];
-        node->metadata.st_nlink--;
+    // if (fs->current->links[(unsigned char)path[0]])
+    // {
+    //     Node *node = fs->current->links[(unsigned char)path[0]];
+    //     node->metadata.st_nlink--;
 
-        if (node->metadata.st_nlink == 0)
-        {
-            deleteNode(node);
-        }
+    //     if (node->metadata.st_nlink == 0)
+    //     {
+    //         deleteNode(node);
+    //     }
 
-        fs->current->links[(unsigned char)path[0]] = NULL;
-        return 0;
-    }
+    //     fs->current->links[(unsigned char)path[0]] = NULL;
+    //     return 0;
+    // }
 
     return -1; // Path not found
 }
@@ -218,13 +267,13 @@ int my_stat(const char *path, struct stat *buf)
     {
         return stat(path, buf);
     }
+    return stat(path, buf);
 
     // if (fs->current->links[(unsigned char)path[0]])
     // {
     //     *buf = fs->current->links[(unsigned char)path[0]]->metadata;
     //     return 0;
     // }
-    fs->mtx.lock();
     printf("my_stat(%s, buf)\n", path);
     // if (strcmp(path, "file1.html") == 0)
     // {
@@ -240,7 +289,6 @@ int my_stat(const char *path, struct stat *buf)
     // }
     errno = ENOENT;
 
-    fs->mtx.unlock();
     return -1; // Path not found
 }
 
@@ -250,13 +298,13 @@ int my_lstat(const char *path, struct stat *buf)
     {
         return lstat(path, buf);
     }
+    return lstat(path, buf);
 
     // if (fs->current->links[(unsigned char)path[0]])
     // {
     //     *buf = fs->current->links[(unsigned char)path[0]]->metadata;
     //     return 0;
     // }
-    fs->mtx.lock();
     printf("my_lstat(%s, buf)\n", path);
     // if (strcmp(path, "file1.html") == 0)
     // {
@@ -266,6 +314,5 @@ int my_lstat(const char *path, struct stat *buf)
     // }
     errno = ENOENT;
 
-    fs->mtx.unlock();
     return -1; // Path not found
 }
