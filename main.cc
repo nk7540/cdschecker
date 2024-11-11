@@ -6,6 +6,9 @@
 #include <getopt.h>
 #include <string.h>
 
+#include <stdio.h>
+#include <time.h>
+
 #include "common.h"
 #include "output.h"
 
@@ -270,6 +273,12 @@ static void model_main()
     DEBUG("Exiting\n");
 }
 
+clock_t cpu_time_start;
+clock_t cpu_time_end;
+double sec_start;
+double sec_end;
+double result_time;
+
 /**
  * Main function.  Just initializes snapshotting library and the
  * snapshotting library calls the model_main function.
@@ -296,6 +305,18 @@ int main(int argc, char **argv)
     /* Configure output redirection for the model-checker */
     redirect_output();
 
+    cpu_time_start = clock();
+    sec_start = (double)cpu_time_start/CLOCKS_PER_SEC;
+    printf("開始時間 : %f\n\n",sec_start);
+
     /* Let's jump in quickly and start running stuff */
     snapshot_system_init(10000, 1024, 1024, 4000, &model_main);
+
+    //計測終了
+    cpu_time_end = clock();
+    sec_end = (double)cpu_time_end/CLOCKS_PER_SEC;
+    printf("\n終了時間 : %f\n",sec_end);
+    //処理時間
+    result_time = sec_end - sec_start;
+    printf("処理時間 : %f\n",result_time);
 }

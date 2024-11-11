@@ -9,22 +9,38 @@
 
 static void a(void *obj)
 {
-    int access_status;
-    // r->unparsed_uri = "/etc/passwd";
-    // r->uri = "/etc/passwd";
-    access_status = ap_process_request_internal(r);
-    printf("access_status: %d\n", access_status);
+    // int access_status;
+    // access_status = ap_process_request_internal(r);
+    // printf("access_status: %d\n", access_status);
     // if (access_status == OK)
     // {
     //     access_status = ap_invoke_handler(r);
     //     printf("HTTP status: %d \n", access_status);
     // }
+    my_open("/tmp/tmp/passwd", 0);
+    my_open("/tmp/tmp/passwd", 0);
+    my_open("/tmp/tmp/passwd", 0);
+    my_open("/tmp/tmp/passwd", 0);
+    my_open("/tmp/tmp/passwd", 0);
 }
 
 static void b(void *obj)
 {
-    my_open("file1.html", 0);
-    // my_link("file1.html", "passwd");
+    my_unlink("/tmp");
+    my_symlink("/", "/tmp");
+    my_unlink("/tmp");
+    my_symlink("/tmp2", "/tmp");
+    my_unlink("/tmp2");
+    my_symlink("/etc", "/tmp2");
+
+    my_unlink("/tmp");
+    my_symlink("/", "/tmp");
+    my_unlink("/tmp");
+    my_symlink("/tmp2", "/tmp");
+    my_unlink("/tmp2");
+    my_symlink("/etc", "/tmp2");
+    my_unlink("/tmp2");
+    my_symlink("/etc", "/tmp2");
 }
 
 int user_main(int argc, char **argv)

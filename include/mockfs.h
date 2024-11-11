@@ -17,6 +17,11 @@ typedef struct Node
     vector<pair<ino_t, string>> links;
 } Node;
 
+typedef struct FS
+{
+    mutex *mtx;
+} FS;
+
 // traverse
 
 extern "C"
@@ -52,7 +57,7 @@ extern "C"
     int my_chdir(const char *path);
 
     // POSIX-like link function
-    int my_link(const char *oldpath, const char *newpath);
+    int my_symlink(const char *oldpath, const char *newpath);
 
     // POSIX-like unlink function
     int my_unlink(const char *path);

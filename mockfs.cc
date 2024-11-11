@@ -13,6 +13,8 @@
 #include <vector>
 #include <unordered_map>
 
+#include "mutex"
+
 using namespace std;
 
 // Global file system instance
@@ -22,11 +24,14 @@ static bool mockfs_enabled = false;
 unordered_map<int, Node *> sys_open_files[2];
 unordered_map<int, Node *> open_files;
 
+mutex *mtx;
+
 // Function to initialize the file system
 void initFileSystem()
 {
     printf("initFileSystem()\n");
 
+    mtx = new mutex();
     // Node *root = allocate();
     // Node *file1 = allocate();
     // Node *file2 = allocate();
@@ -40,6 +45,7 @@ void resetFileSystem()
 {
     printf("resetFileSystem()\n");
     mockfs_enabled = false;
+    free(mtx);
 }
 
 void switchProc(int pid)
@@ -166,6 +172,10 @@ int my_open(const char *path, int flags, ...)
         return open(path, flags, mode);
     }
 
+    mtx->lock();
+    printf("open(\"file1.html\")\n");
+    mtx->unlock();
+
     Node *fileNode = NULL;
 
     // if (fs->current->links[(unsigned char)path[0]])
@@ -211,14 +221,16 @@ int my_chdir(const char *path)
 }
 
 // POSIX-like link function
-int my_link(const char *oldpath, const char *newpath)
+int my_symlink(const char *oldpath, const char *newpath)
 {
     if (!mockfs_enabled)
     {
-        return link(oldpath, newpath);
+        return symlink(oldpath, newpath);
     }
 
-    printf("link(\"file1.html\")\n");
+    mtx->lock();
+    printf("symlink(\"file1.html\")\n");
+    mtx->unlock();
     // if (fs->current->links[(unsigned char)newpath[0]])
     // {
     //     fs->mtx.unlock();

@@ -789,8 +789,8 @@ void create_req()
     c->keepalive = AP_CONN_UNKNOWN;
     // ap_run_pre_read_request(r, c);
 
-    r->unparsed_uri = "../htdocs/file2.html";
-    r->uri = "../htdocs/file2.html";
+    r->unparsed_uri = "/file1.html";
+    r->uri = "/file1.html";
     // apr_uri_t parsed_uri = {.path = "/file1.html"};
     // r->parsed_uri = parsed_uri;
     printf("request created\n");
