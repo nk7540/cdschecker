@@ -1,28 +1,64 @@
 #ifndef __MOCKFS_H__
 #define __MOCKFS_H__
 
-#include <sys/stat.h>
-#include <pthread.h>
-#include <vector>
+#include <iostream>
+#include <unordered_map>
+#include <unordered_set>
 #include <string>
-#include "mutex"
+#include <sys/stat.h> // For stat metadata
+#include <fcntl.h>    // For open flags
+#include <map>
 
-using namespace std;
+// Forward declaration of Node class
+class Node;
 
-// Node structure representing an inode
-typedef struct Node
-{
-    struct stat metadata;
-    char *target; // for symlink target path
-    vector<pair<ino_t, string>> links;
-} Node;
+// Type alias for a raw pointer to Node
+using NodePtr = Node*;
+using FileDescriptor = int;
 
-typedef struct FS
-{
-    mutex *mtx;
-} FS;
+class Node {
+public:
+    struct stat metadata; // Metadata for the node
+    std::unordered_set<std::string> hardLinks; // Names pointing to this node
+    std::string symlinkTarget; // Target of a symbolic link (empty if not a symlink)
 
-// traverse
+    // Constructor
+    Node(const struct stat& nodeMetadata);
+
+    // Add a hard link
+    void addHardLink(const std::string& name);
+
+    // Remove a hard link
+    void removeHardLink(const std::string& name);
+
+    // Display the node's details
+    void displayLinks() const;
+
+    ~Node();
+};
+
+class FileSystem {
+private:
+    std::unordered_map<std::string, NodePtr> nodes; // Map to store nodes by names
+    std::map<FileDescriptor, NodePtr> fileDescriptors; // Map of open file descriptors
+    FileDescriptor nextFd = 3; // File descriptor counter
+
+public:
+    FileSystem();
+    ~FileSystem();
+
+    // Create a symbolic link
+    int symlink(const std::string& oldpath, const std::string& newpath);
+
+    // Retrieve metadata of a file or directory
+    int stat(const std::string& path, struct stat* buf);
+
+    // Open a file
+    int open(const std::string& path, int flags);
+
+    // Unlink a file
+    int unlink(const std::string& path);
+};
 
 extern "C"
 {

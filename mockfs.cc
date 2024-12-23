@@ -24,6 +24,7 @@ static bool mockfs_enabled = false;
 unordered_map<int, Node *> sys_open_files[2];
 unordered_map<int, Node *> open_files;
 
+FileSystem *fs;
 mutex *mtx;
 
 // Function to initialize the file system
@@ -32,6 +33,8 @@ void initFileSystem()
     printf("initFileSystem()\n");
 
     mtx = new mutex();
+    fs = new FileSystem();
+    fs->createNode("/", "file1");
     // Node *root = allocate();
     // Node *file1 = allocate();
     // Node *file2 = allocate();
@@ -46,40 +49,13 @@ void resetFileSystem()
     printf("resetFileSystem()\n");
     mockfs_enabled = false;
     free(mtx);
+    free(fs);
 }
 
 void switchProc(int pid)
 {
     open_files = sys_open_files[pid];
 }
-
-Node *allocate()
-{
-    Node *node;
-
-    node->metadata.st_ino = inode_count;
-    inode_map[inode_count] = node;
-
-    inode_count++;
-    return node;
-}
-
-void link_node(Node *src, Node *dst, string name)
-{
-    src->links.push_back({dst->metadata.st_ino, name});
-};
-
-void unlink_node(Node *src, string name)
-{
-    for (int i = 0; i < src->links.size(); i++)
-    {
-        if (src->links[i].second == name)
-        {
-            free(inode_map[src->links[i].first]);
-            src->links.erase(src->links.begin() + i);
-        }
-    }
-};
 
 // Function to destroy the file system
 void destroyFileSystem()
@@ -90,50 +66,168 @@ void destroyFileSystem()
     }
 }
 
-void traversePath(const string &pathname)
-{
-    // Start traversal from the root node
-    Node *currentNode = inode_map[0];
+// void traversePath(const string &pathname)
+// {
+//     // Start traversal from the root node
+//     Node *currentNode = inode_map[0];
 
-    size_t pos = 1;
-    while (pos < pathname.size())
-    {
-        size_t nextSlash = pathname.find('/', pos);
-        string component = pathname.substr(pos, nextSlash - pos);
+//     size_t pos = 1;
+//     while (pos < pathname.size())
+//     {
+//         size_t nextSlash = pathname.find('/', pos);
+//         string component = pathname.substr(pos, nextSlash - pos);
 
-        // Find the next node to traverse
-        bool found = false;
-        for (auto &link : currentNode->links)
-        {
-            if (component == link.second)
-            {
-                found = true;
-                currentNode = inode_map[link.first];
+//         // Find the next node to traverse
+//         bool found = false;
+//         for (auto &link : currentNode->links)
+//         {
+//             if (component == link.second)
+//             {
+//                 found = true;
+//                 currentNode = inode_map[link.first];
 
-                // Handle symbolic links (symlink)
-                if (currentNode->target)
-                {
-                    string symlinkTarget(currentNode->target);
-                    cout << "Following symlink: " << symlinkTarget << endl;
-                    traversePath(symlinkTarget + pathname.substr(nextSlash));
-                    return;
-                }
-                break;
-            }
-        }
+//                 // Handle symbolic links (symlink)
+//                 if (currentNode->target)
+//                 {
+//                     string symlinkTarget(currentNode->target);
+//                     cout << "Following symlink: " << symlinkTarget << endl;
+//                     traversePath(symlinkTarget + pathname.substr(nextSlash));
+//                     return;
+//                 }
+//                 break;
+//             }
+//         }
 
-        if (!found)
-        {
-            cout << "Path not found: " << pathname << endl;
-            return;
-        }
+//         if (!found)
+//         {
+//             cout << "Path not found: " << pathname << endl;
+//             return;
+//         }
 
-        if (nextSlash == string::npos)
-            break;
-        pos = nextSlash + 1;
+//         if (nextSlash == string::npos)
+//             break;
+//         pos = nextSlash + 1;
+//     }
+
+//     cout << "Traversal successful. Reached inode: " << currentNode->metadata.st_ino << endl;
+// }
+
+// Node class implementation
+Node::Node(const struct stat& nodeMetadata)
+    : metadata(nodeMetadata), symlinkTarget("") {}
+
+void Node::addHardLink(const std::string& name) {
+    hardLinks.insert(name);
+}
+
+void Node::removeHardLink(const std::string& name) {
+    hardLinks.erase(name);
+}
+
+void Node::displayLinks() const {
+    std::cout << "Node links:";
+    for (const auto& link : hardLinks) {
+        std::cout << " " << link;
     }
+    if (!symlinkTarget.empty()) {
+        std::cout << " (symlink to " << symlinkTarget << ")";
+    }
+    std::cout << std::endl;
+}
 
-    cout << "Traversal successful. Reached inode: " << currentNode->metadata.st_ino << endl;
+Node::~Node() {
+    std::cout << "Node destroyed." << std::endl;
+}
+
+// FileSystem class implementation
+FileSystem::FileSystem() {
+    struct stat metadata = {};
+    metadata.st_mode = S_IFDIR; // Root is a directory
+    NodePtr rootNode = new Node(metadata);
+    rootNode->addHardLink("/");
+    nodes["/"] = rootNode;
+    std::cout << "Root directory '/' created." << std::endl;
+}
+
+FileSystem::~FileSystem() {
+    for (auto& pair : nodes) {
+        delete pair.second;
+    }
+    nodes.clear();
+    fileDescriptors.clear();
+    std::cout << "File system destroyed." << std::endl;
+}
+
+int FileSystem::symlink(const std::string& oldpath, const std::string& newpath) {
+    if (nodes.find(newpath) != nodes.end()) {
+        return -1; // EEXIST
+    }
+    struct stat metadata = {};
+    metadata.st_mode = S_IFLNK; // Set symbolic link mode
+    NodePtr symlinkNode = new Node(metadata);
+    symlinkNode->symlinkTarget = oldpath;
+    nodes[newpath] = symlinkNode;
+    return 0;
+}
+
+int FileSystem::stat(const std::string& path, struct stat* buf) {
+    if (nodes.find(path) == nodes.end()) {
+        return -1; // ENOENT
+    }
+    *buf = nodes[path]->metadata;
+    return 0;
+}
+
+int FileSystem::open(const std::string& path, int flags) {
+    if (nodes.find(path) == nodes.end()) {
+        if (flags & O_CREAT) {
+            struct stat metadata = {};
+            metadata.st_mode = S_IFREG; // Regular file
+            NodePtr newNode = new Node(metadata);
+            newNode->addHardLink(path);
+            nodes[path] = newNode;
+        } else {
+            return -1; // ENOENT
+        }
+    }
+    fileDescriptors[nextFd] = nodes[path];
+    return nextFd++;
+}
+
+int FileSystem::unlink(const std::string& path) {
+    if (nodes.find(path) == nodes.end()) {
+        return -1; // ENOENT
+    }
+    NodePtr targetNode = nodes[path];
+    targetNode->removeHardLink(path);
+    nodes.erase(path);
+
+    if (targetNode->hardLinks.empty()) {
+        delete targetNode;
+    }
+    return 0;
+}
+
+FileSystem fs;
+
+extern "C" {
+
+int my_open(const char* path, int flags, ...) {
+    return fs->open(path, flags);
+}
+
+int my_symlink(const char* oldpath, const char* newpath) {
+    return fs->symlink(oldpath, newpath);
+}
+
+int my_stat(const char* path, struct stat* buf) {
+    return fs->stat(path, buf);
+}
+
+int my_unlink(const char* path) {
+    return fs->unlink(path);
+}
+
 }
 
 // POSIX-like creat function

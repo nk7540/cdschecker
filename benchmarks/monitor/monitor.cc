@@ -18,10 +18,6 @@ static void a(void *obj)
     //     printf("HTTP status: %d \n", access_status);
     // }
     my_open("/tmp/tmp/passwd", 0);
-    my_open("/tmp/tmp/passwd", 0);
-    my_open("/tmp/tmp/passwd", 0);
-    my_open("/tmp/tmp/passwd", 0);
-    my_open("/tmp/tmp/passwd", 0);
 }
 
 static void b(void *obj)
