@@ -9,21 +9,21 @@
 #include <fcntl.h>    // For open flags
 #include <map>
 
-// Forward declaration of Node class
-class Node;
+// Forward declaration of INode class
+class INode;
 
-// Type alias for a raw pointer to Node
-using NodePtr = Node*;
+// Type alias for a raw pointer to INode
+using INodePtr = INode*;
 using FileDescriptor = int;
 
-class Node {
+class INode {
 public:
     struct stat metadata; // Metadata for the node
     std::unordered_set<std::string> hardLinks; // Names pointing to this node
     std::string symlinkTarget; // Target of a symbolic link (empty if not a symlink)
 
     // Constructor
-    Node(const struct stat& nodeMetadata);
+    INode(const struct stat& nodeMetadata);
 
     // Add a hard link
     void addHardLink(const std::string& name);
@@ -34,13 +34,13 @@ public:
     // Display the node's details
     void displayLinks() const;
 
-    ~Node();
+    ~INode();
 };
 
 class FileSystem {
 private:
-    std::unordered_map<std::string, NodePtr> nodes; // Map to store nodes by names
-    std::map<FileDescriptor, NodePtr> fileDescriptors; // Map of open file descriptors
+    std::unordered_map<std::string, INodePtr> nodes; // Map to store nodes by names
+    std::map<FileDescriptor, INodePtr> fileDescriptors; // Map of open file descriptors
     FileDescriptor nextFd = 3; // File descriptor counter
 
 public:
@@ -62,14 +62,10 @@ public:
 
 extern "C"
 {
-    Node *allocate();
-    void link_node(Node *src, Node *dst, string name);
-    void unlink_node(Node *src, string name);
-
-    void switchProc(int pid);
+    INode *allocate();
 
     // Function to create a new node
-    Node *createNode();
+    INode *createINode();
 
     // Function to initialize the file system
     void initFileSystem();
@@ -78,7 +74,7 @@ extern "C"
     void resetFileSystem();
 
     // Function to delete a node recursively
-    void deleteNode(Node *node);
+    void deleteINode(INode *node);
 
     // Function to destroy the file system
     void destroyFileSystem();
