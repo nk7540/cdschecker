@@ -214,3 +214,151 @@ int safe_open(const char *path, int flags, char **final_resolved_path, ...)
     free(path_copy);
     return dir_fd;
 }
+
+int krace(const char *path, struct stat *s)
+{
+    int k = 1;
+    struct stat buffer;
+    if (access("targetfile", R_OK) != 0)
+    {
+        errno = EACCES;
+        return -1;
+    }
+    int fd = open("targetfile", O_RDONLY);
+    if (fd < 0)
+    {
+        errno = ENOENT;
+        return -1;
+    }
+    /* This is the strengthening. */
+    /*First, get the original inode. */
+    if (fstat(fd, &buffer) != 0)
+    {
+        errno = ENOENT;
+        return -1;
+    }
+    int orig_inode = buffer.st_ino;
+    int orig_device = buffer.st_dev;
+    /* Now, repeat the race. */
+    /* File must be the same each time. */
+    for (int i = 0; i < k; i++)
+    {
+        if (access("targetfile", R_OK) != 0)
+        {
+            errno = EACCES;
+            return -1;
+        }
+        int rept_fd = open("targetfile", O_RDONLY);
+        if (rept_fd < 0)
+        {
+            errno = ENOENT;
+            return -1;
+        }
+        if (fstat(rept_fd, &buffer) != 0)
+        {
+            /* Return an error. */
+            errno = ENOENT;
+            return -1;
+        }
+        if (close(rept_fd) != 0)
+        {
+            errno = ENOENT;
+            return -1;
+        }
+        if (orig_inode != buffer.st_ino)
+            errno = EACCES;
+        return -1;
+        if (orig_device != buffer.st_dev)
+            errno = EACCES;
+        return -1;
+    }
+}
+
+#define MAXPATHLEN 40
+
+char *chop_1st(char *path)
+{
+    static char buffer[MAXPATHLEN];
+    char *slash = strchr(path, '/');
+    if (!slash)
+        return NULL; // No further segments
+    size_t len = slash - path;
+    strncpy(buffer, path, len);
+    buffer[len] = '\0';
+    return path + len + 1; // Skip past the slash
+}
+
+int is_symlink(const char *path, char *target, struct stat *s, bool *is_sym)
+{
+    if (lstat(path, s) == -1)
+    {
+        return -1;
+    }
+    *is_sym = S_ISLNK(s->st_mode);
+    if (*is_sym)
+    {
+        ssize_t len = readlink(path, target, MAXPATHLEN - 1);
+        if (len == -1)
+        {
+            return -1;
+        }
+        target[len] = '\0';
+    }
+    return 0;
+}
+
+int atomic_krace(char *path)
+{
+    int fd;
+    char *suffix, target[MAXPATHLEN];
+    struct stat s;
+    bool is_sym;
+
+    // Handle absolute paths
+    if (path[0] == '/')
+    {
+        if (chdir("/") == -1)
+        {
+            perror("chdir to root failed");
+            return -1;
+        }
+        path++;
+    }
+
+    while (true)
+    {
+        suffix = chop_1st(path);
+        if (is_symlink(path, target, &s, &is_sym) == -1)
+        {
+            perror("is_symlink failed");
+            return -1;
+        }
+        fd = (is_sym ? atomic_krace(target) : krace(path, &s));
+        if (fd == -1)
+        {
+            perror("Opening file failed");
+            return -1;
+        }
+
+        if (suffix)
+        {
+            if (fchdir(fd) == -1)
+            {
+                perror("fchdir failed");
+                close(fd);
+                return -1;
+            }
+            if (close(fd) == -1)
+            {
+                perror("close failed");
+                return -1;
+            }
+            path = suffix;
+        }
+        else
+        {
+            break;
+        }
+    }
+    return fd;
+}
