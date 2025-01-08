@@ -123,7 +123,7 @@ int main(int argc, char **argv)
             {
                 sum += res[p - 1][i - 1][k - 1];
             }
-            ave[p][i] = sum / ITERATION;
+            ave[p - 1][i - 1] = sum / ITERATION;
             printf("%d, ", ave[p - 1][i - 1]);
         }
         printf("]\n");
