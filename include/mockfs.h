@@ -13,23 +13,24 @@
 class INode;
 
 // Type alias for a raw pointer to INode
-using INodePtr = INode*;
+using INodePtr = INode *;
 using FileDescriptor = int;
 
-class INode {
+class INode
+{
 public:
-    struct stat metadata; // Metadata for the node
+    struct stat metadata;                      // Metadata for the node
     std::unordered_set<std::string> hardLinks; // Names pointing to this node
-    std::string symlinkTarget; // Target of a symbolic link (empty if not a symlink)
+    std::string symlinkTarget;                 // Target of a symbolic link (empty if not a symlink)
 
     // Constructor
-    INode(const struct stat& nodeMetadata);
+    INode(const struct stat &nodeMetadata);
 
     // Add a hard link
-    void addHardLink(const std::string& name);
+    void addHardLink(const std::string &name);
 
     // Remove a hard link
-    void removeHardLink(const std::string& name);
+    void removeHardLink(const std::string &name);
 
     // Display the node's details
     void displayLinks() const;
@@ -37,27 +38,28 @@ public:
     ~INode();
 };
 
-class FileSystem {
+class FileSystem
+{
 private:
-    std::unordered_map<std::string, INodePtr> nodes; // Map to store nodes by names
+    std::unordered_map<std::string, INodePtr> nodes;    // Map to store nodes by names
     std::map<FileDescriptor, INodePtr> fileDescriptors; // Map of open file descriptors
-    FileDescriptor nextFd = 3; // File descriptor counter
+    FileDescriptor nextFd = 3;                          // File descriptor counter
 
 public:
     FileSystem();
     ~FileSystem();
 
     // Create a symbolic link
-    int symlink(const std::string& oldpath, const std::string& newpath);
+    int symlink(const std::string &oldpath, const std::string &newpath);
 
     // Retrieve metadata of a file or directory
-    int stat(const std::string& path, struct stat* buf);
+    int stat(const std::string &path, struct stat *buf);
 
     // Open a file
-    int open(const std::string& path, int flags);
+    int open(const std::string &path, int flags);
 
     // Unlink a file
-    int unlink(const std::string& path);
+    int unlink(const std::string &path);
 };
 
 extern "C"
@@ -99,6 +101,9 @@ extern "C"
 
     // POSIX-like lstat function
     int my_lstat(const char *path, struct stat *buf);
+
+    // Functions for attackers
+    int unlink_and_symlink(const char *oldpath, const char *newpath);
 }
 
 #endif // FILE_SYSTEM_H

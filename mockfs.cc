@@ -27,19 +27,12 @@ unordered_map<int, INode *> open_files;
 FileSystem *fs;
 mutex *mtx;
 
-// Function to initialize the file system
 void initFileSystem()
 {
     printf("initFileSystem()\n");
 
     mtx = new mutex();
     fs = new FileSystem();
-    // fs->createINode("/", "file1");
-    // INode *root = allocate();
-    // INode *file1 = allocate();
-    // INode *file2 = allocate();
-    // link_node(root, file1, "file1");
-    // link_node(root, file2, "file2");
 
     mockfs_enabled = true;
 }
@@ -47,9 +40,11 @@ void initFileSystem()
 void resetFileSystem()
 {
     printf("resetFileSystem()\n");
-    mockfs_enabled = false;
+
     free(mtx);
     free(fs);
+
+    mockfs_enabled = false;
 }
 
 // Function to destroy the file system
@@ -108,34 +103,41 @@ void destroyFileSystem()
 // }
 
 // INode class implementation
-INode::INode(const struct stat& nodeMetadata)
+INode::INode(const struct stat &nodeMetadata)
     : metadata(nodeMetadata), symlinkTarget("") {}
 
-void INode::addHardLink(const std::string& name) {
+void INode::addHardLink(const std::string &name)
+{
     hardLinks.insert(name);
 }
 
-void INode::removeHardLink(const std::string& name) {
+void INode::removeHardLink(const std::string &name)
+{
     hardLinks.erase(name);
 }
 
-void INode::displayLinks() const {
+void INode::displayLinks() const
+{
     std::cout << "INode links:";
-    for (const auto& link : hardLinks) {
+    for (const auto &link : hardLinks)
+    {
         std::cout << " " << link;
     }
-    if (!symlinkTarget.empty()) {
+    if (!symlinkTarget.empty())
+    {
         std::cout << " (symlink to " << symlinkTarget << ")";
     }
     std::cout << std::endl;
 }
 
-INode::~INode() {
+INode::~INode()
+{
     std::cout << "INode destroyed." << std::endl;
 }
 
 // FileSystem class implementation
-FileSystem::FileSystem() {
+FileSystem::FileSystem()
+{
     struct stat metadata = {};
     metadata.st_mode = S_IFDIR; // Root is a directory
     INodePtr rootINode = new INode(metadata);
@@ -144,8 +146,10 @@ FileSystem::FileSystem() {
     std::cout << "Root directory '/' created." << std::endl;
 }
 
-FileSystem::~FileSystem() {
-    for (auto& pair : nodes) {
+FileSystem::~FileSystem()
+{
+    for (auto &pair : nodes)
+    {
         delete pair.second;
     }
     nodes.clear();
@@ -153,9 +157,12 @@ FileSystem::~FileSystem() {
     std::cout << "File system destroyed." << std::endl;
 }
 
-int FileSystem::symlink(const std::string& oldpath, const std::string& newpath) {
-    if (nodes.find(newpath) != nodes.end()) {
-        return -1; // EEXIST
+int FileSystem::symlink(const std::string &oldpath, const std::string &newpath)
+{
+    if (nodes.find(newpath) != nodes.end())
+    {
+        errno = EEXIST;
+        return -1;
     }
     struct stat metadata = {};
     metadata.st_mode = S_IFLNK; // Set symbolic link mode
@@ -165,96 +172,132 @@ int FileSystem::symlink(const std::string& oldpath, const std::string& newpath) 
     return 0;
 }
 
-int FileSystem::stat(const std::string& path, struct stat* buf) {
-    if (nodes.find(path) == nodes.end()) {
-        return -1; // ENOENT
+int FileSystem::stat(const std::string &path, struct stat *buf)
+{
+    if (nodes.find(path) == nodes.end())
+    {
+        errno = ENOENT;
+        return -1;
     }
     *buf = nodes[path]->metadata;
     return 0;
 }
 
-int FileSystem::open(const std::string& path, int flags) {
-    if (nodes.find(path) == nodes.end()) {
-        if (flags & O_CREAT) {
+int FileSystem::open(const std::string &path, int flags)
+{
+    if (nodes.find(path) == nodes.end())
+    {
+        if (flags & O_CREAT)
+        {
             struct stat metadata = {};
             metadata.st_mode = S_IFREG; // Regular file
             INodePtr newINode = new INode(metadata);
             newINode->addHardLink(path);
             nodes[path] = newINode;
-        } else {
-            return -1; // ENOENT
+        }
+        else
+        {
+            errno = ENOENT;
+            return -1;
         }
     }
     fileDescriptors[nextFd] = nodes[path];
     return nextFd++;
 }
 
-int FileSystem::unlink(const std::string& path) {
-    if (nodes.find(path) == nodes.end()) {
-        return -1; // ENOENT
+int FileSystem::unlink(const std::string &path)
+{
+    if (nodes.find(path) == nodes.end())
+    {
+        errno = ENOENT;
+        return -1;
     }
     INodePtr targetINode = nodes[path];
     targetINode->removeHardLink(path);
     nodes.erase(path);
 
-    if (targetINode->hardLinks.empty()) {
+    if (targetINode->hardLinks.empty())
+    {
         delete targetINode;
     }
     return 0;
 }
 
-extern "C" {
+extern "C"
+{
 
-int my_open(const char* path, int flags, ...) {
-    va_list ap;
-    va_start(ap, flags);
-    mode_t mode = va_arg(ap, mode_t);
-
-    if (!mockfs_enabled)
+    int my_open(const char *path, int flags, ...)
     {
-        return open(path, flags, mode);
-    }
-    mtx->lock();
-    printf("open();\n");
-    mtx->unlock();
+        va_list ap;
+        va_start(ap, flags);
+        mode_t mode = va_arg(ap, mode_t);
 
-    va_end(ap);
-    return fs->open(path, flags);
-}
+        if (!mockfs_enabled)
+        {
+            return open(path, flags, mode);
+        }
+        mtx->lock();
+        printf("open();\n");
+        mtx->unlock();
 
-int my_symlink(const char* oldpath, const char* newpath) {
-    if (!mockfs_enabled)
-    {
-        return symlink(oldpath, newpath);
-    }
-    mtx->lock();
-    printf("my_symlink();\n");
-    mtx->unlock();
-
-    return fs->symlink(oldpath, newpath);
-}
-
-int my_stat(const char* path, struct stat* buf) {
-    if (!mockfs_enabled)
-    {
-        return stat(path, buf);
+        va_end(ap);
+        return fs->open(path, flags);
     }
 
-    return fs->stat(path, buf);
-}
-
-int my_unlink(const char* path) {
-    if (!mockfs_enabled)
+    int my_symlink(const char *oldpath, const char *newpath)
     {
-        return unlink(path);
+        if (!mockfs_enabled)
+        {
+            return symlink(oldpath, newpath);
+        }
+        mtx->lock();
+        printf("my_symlink();\n");
+        mtx->unlock();
+
+        return fs->symlink(oldpath, newpath);
     }
-    mtx->lock();
-    printf("my_unlink();\n");
-    mtx->unlock();
 
-    // errno = ENOENT;
-    // return -1;
-    return fs->unlink(path);
-}
+    int my_stat(const char *path, struct stat *buf)
+    {
+        if (!mockfs_enabled)
+        {
+            return stat(path, buf);
+        }
 
+        return fs->stat(path, buf);
+    }
+
+    int my_lstat(const char *path, struct stat *buf)
+    {
+        if (!mockfs_enabled)
+        {
+            return lstat(path, buf);
+        }
+
+        // TODO
+        return fs->stat(path, buf);
+    }
+
+    int my_unlink(const char *path)
+    {
+        if (!mockfs_enabled)
+        {
+            return unlink(path);
+        }
+        mtx->lock();
+        printf("my_unlink();\n");
+        mtx->unlock();
+
+        return fs->unlink(path);
+    }
+
+    int unlink_and_symlink(const char *oldpath, const char *newpath)
+    {
+        mtx->lock();
+        printf("unlink_and_symlink();\n");
+        mtx->unlock();
+
+        // return fs->unlink(path);
+        return -1;
+    }
 }
