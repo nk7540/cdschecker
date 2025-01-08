@@ -24,10 +24,10 @@ $(NORMAL_TESTS): % : %.cc original.o attacker.o
 	$(CXX) -o $@ original.o attacker.o $< $(CXXFLAGS) $(LDFLAGS)
 
 performance: performance.cc original.o
-	$(CXX) -o $@ original.o $< 
+	$(CXX) -o $@ original.o $< -g
 
 original.o: original.cc
-	$(CXX) -c -o $@ $< 
+	$(CXX) -c -o $@ $< -g
 
 attacker.o: attacker.cc
 	$(CXX) -c -o $@ $< $(CXXFLAGS) $(LDFLAGS)

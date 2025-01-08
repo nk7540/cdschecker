@@ -14,7 +14,7 @@
 const char *restricted_paths[] = {
     "/etc/passwd",
     "/etc/shadow",
-    "/restricted/directory",
+    "/tmp/test/dir1",
     NULL // Sentinel to mark the end of the list
 };
 
@@ -217,14 +217,14 @@ int safe_open(const char *path, int flags, char **final_resolved_path, ...)
 
 int krace(const char *path, struct stat *s)
 {
-    int k = 1;
+    int k = 5;
     struct stat buffer;
-    if (access("targetfile", R_OK) != 0)
+    if (access(path, R_OK) != 0)
     {
         errno = EACCES;
         return -1;
     }
-    int fd = open("targetfile", O_RDONLY);
+    int fd = open(path, O_RDONLY);
     if (fd < 0)
     {
         errno = ENOENT;
@@ -243,12 +243,12 @@ int krace(const char *path, struct stat *s)
     /* File must be the same each time. */
     for (int i = 0; i < k; i++)
     {
-        if (access("targetfile", R_OK) != 0)
+        if (access(path, R_OK) != 0)
         {
             errno = EACCES;
             return -1;
         }
-        int rept_fd = open("targetfile", O_RDONLY);
+        int rept_fd = open(path, O_RDONLY);
         if (rept_fd < 0)
         {
             errno = ENOENT;
@@ -266,26 +266,34 @@ int krace(const char *path, struct stat *s)
             return -1;
         }
         if (orig_inode != buffer.st_ino)
+        {
+
             errno = EACCES;
-        return -1;
+            return -1;
+        }
         if (orig_device != buffer.st_dev)
+        {
             errno = EACCES;
-        return -1;
+            return -1;
+        }
     }
+    return fd;
 }
 
-#define MAXPATHLEN 40
+#define MAXPATHLEN 4096
 
 char *chop_1st(char *path)
 {
-    static char buffer[MAXPATHLEN];
     char *slash = strchr(path, '/');
     if (!slash)
-        return NULL; // No further segments
-    size_t len = slash - path;
-    strncpy(buffer, path, len);
-    buffer[len] = '\0';
-    return path + len + 1; // Skip past the slash
+    {
+        // No further segments; return NULL
+        return NULL;
+    }
+    // Extract the first component (atom) and truncate path
+    *slash = '\0';            // Terminate the first component
+    char *suffix = slash + 1; // Remaining path
+    return suffix;
 }
 
 int is_symlink(const char *path, char *target, struct stat *s, bool *is_sym)

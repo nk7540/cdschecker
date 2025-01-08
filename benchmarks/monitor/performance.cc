@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <vector>
 
 #include "original.h"
 
@@ -29,25 +30,23 @@ void create_directories()
 
 clock_t cpu_time_start;
 clock_t cpu_time_end;
-double sec_start;
-double sec_end;
-double result_time;
+int result_time;
 
-double res[4][MAX_PATH_LENGTH][ITERATION];
-double ave[4][MAX_PATH_LENGTH];
+int res[4][MAX_PATH_LENGTH][ITERATION];
+int ave[4][MAX_PATH_LENGTH];
+char path[256];
 
 int main(int argc, char **argv)
 {
-    char path[MAX_PATH_LENGTH];
-
     // Ensure the base directory exists
     create_directories();
 
     for (int p = 1; p <= 4; p++)
     {
-        for (int k = 1; k <= ITERATION; k++)
+        printf("open with p = %d\n", p);
+        for (int i = 1; i <= MAX_PATH_LENGTH; i++)
         {
-            for (int i = 1; i <= MAX_PATH_LENGTH; i++)
+            for (int k = 1; k <= ITERATION; k++)
             {
                 snprintf(path, sizeof(path), BASE_DIR);
 
@@ -59,7 +58,6 @@ int main(int argc, char **argv)
 
                 printf("Trying to open: %s\n", path);
                 cpu_time_start = clock();
-                sec_start = (double)cpu_time_start * 1000000 / CLOCKS_PER_SEC;
 
                 int fd;
                 switch (p)
@@ -81,10 +79,10 @@ int main(int argc, char **argv)
                 }
 
                 cpu_time_end = clock();
-                sec_end = (double)cpu_time_end * 1000000 / CLOCKS_PER_SEC;
-                result_time = sec_end - sec_start;
-                res[p][i][k] = result_time;
-                printf("Duration: %f\n", result_time);
+                result_time = (int)(cpu_time_end - cpu_time_start);
+                printf("res\n");
+                res[p - 1][i - 1][k - 1] = result_time;
+                printf("Duration: %d\n", result_time);
 
                 if (fd == -1)
                 {
@@ -92,7 +90,7 @@ int main(int argc, char **argv)
                 }
                 else
                 {
-                    printf("Successfully opened: %s\n", path);
+                    printf("Successfully opened\n");
                     close(fd);
                 }
             }
@@ -120,13 +118,13 @@ int main(int argc, char **argv)
         }
         for (int i = 1; i <= MAX_PATH_LENGTH; i++)
         {
-            double sum = 0;
+            int sum = 0;
             for (int k = 1; k <= ITERATION; k++)
             {
-                sum += res[p][i][k];
+                sum += res[p - 1][i - 1][k - 1];
             }
             ave[p][i] = sum / ITERATION;
-            printf("%f, ", ave[p][i]);
+            printf("%d, ", ave[p - 1][i - 1]);
         }
         printf("]\n");
     }
